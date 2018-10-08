@@ -58,6 +58,7 @@ typedef enum {
 	DiskCache,
 	DefaultCharset,
 	DNSPrefetch,
+	Ephemeral,
 	FileURLsCrossAccess,
 	FontSize,
 	FrameFlattening,
@@ -350,8 +351,11 @@ setup(void)
 	/* dirs and files */
 	cookiefile = buildfile(cookiefile);
 	scriptfile = buildfile(scriptfile);
-	cachedir   = buildpath(cachedir);
 	certdir    = buildpath(certdir);
+	if (curconfig[Ephemeral].val.i)
+		cachedir = NULL;
+	else
+		cachedir   = buildpath(cachedir);
 
 	gdkkb = gdk_seat_get_keyboard(gdk_display_get_default_seat(gdpy));
 
@@ -1141,11 +1145,16 @@ newview(Client *c, WebKitWebView *rv)
 
 		contentmanager = webkit_user_content_manager_new();
 
-		context = webkit_web_context_new_with_website_data_manager(
-		          webkit_website_data_manager_new(
-		          "base-cache-directory", cachedir,
-		          "base-data-directory", cachedir,
-		          NULL));
+		if (curconfig[Ephemeral].val.i) {
+			context = webkit_web_context_new_ephemeral();
+		} else {
+			context = webkit_web_context_new_with_website_data_manager(
+			          webkit_website_data_manager_new(
+			          "base-cache-directory", cachedir,
+			          "base-data-directory", cachedir,
+			          NULL));
+		}
+
 
 		cookiemanager = webkit_web_context_get_cookie_manager(context);
 
@@ -1167,8 +1176,9 @@ newview(Client *c, WebKitWebView *rv)
 			    context, *plugindirs);
 
 		/* Currently only works with text file to be compatible with curl */
-		webkit_cookie_manager_set_persistent_storage(cookiemanager,
-		    cookiefile, WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT);
+		if (!curconfig[Ephemeral].val.i)
+			webkit_cookie_manager_set_persistent_storage(cookiemanager,
+			    cookiefile, WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT);
 		/* cookie policy */
 		webkit_cookie_manager_set_accept_policy(cookiemanager,
 		    cookiepolicy_get());

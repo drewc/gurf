@@ -29,6 +29,7 @@ static Parameter defconfig[ParameterLast] = {
 	[DefaultCharset]      =       { { .v = "UTF-8" }, },
 	[DiskCache]           =       { { .i = 1 },     },
 	[DNSPrefetch]         =       { { .i = 0 },     },
+	[Ephemeral]           =       { { .i = 0 },     },
 	[FileURLsCrossAccess] =       { { .i = 0 },     },
 	[FontSize]            =       { { .i = 12 },    },
 	[FrameFlattening]     =       { { .i = 0 },     },
