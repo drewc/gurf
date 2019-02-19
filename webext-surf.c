@@ -26,8 +26,10 @@ newpage(WebKitWebPage *page)
 {
 	Page *p;
 
-	if (!(p = calloc(1, sizeof(Page))))
-		die("Cannot malloc!\n");
+	if (!(p = calloc(1, sizeof(Page)))) {
+		fputs("Cannot malloc!\n", stderr);
+		exit(1);
+	}
 
 	p->next = pages;
 	pages = p;

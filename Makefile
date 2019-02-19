@@ -5,10 +5,8 @@
 include config.mk
 
 SRC = surf.c
-CSRC = common.c
 WSRC = webext-surf.c
 OBJ = $(SRC:.c=.o)
-COBJ = $(CSRC:.c=.o)
 WOBJ = $(WSRC:.c=.o)
 WLIB = $(WSRC:.c=.so)
 
@@ -25,23 +23,21 @@ options:
 	$(CC) $(SURFCFLAGS) $(CFLAGS) -c $<
 
 .o.so:
-	$(CC) -shared -Wl,-soname,$@ $(LDFLAGS) -o $@ \
-	    $< $(COBJ) $(WEBEXTLIBS)
+	$(CC) -shared -Wl,-soname,$@ $(LDFLAGS) -o $@ $< $(WEBEXTLIBS)
 
 config.h:
 	cp config.def.h $@
 
-$(OBJ) $(COBJ) $(WOBJ): config.h common.h config.mk
-$(WLIB): $(COBJ)
+$(OBJ) $(WOBJ): config.h common.h config.mk
 
-surf: $(OBJ) $(COBJ)
-	$(CC) $(SURFLDFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(COBJ) $(LIBS)
+surf: $(OBJ)
+	$(CC) $(SURFLDFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
 
 $(WOBJ):
 	$(CC) $(WEBEXTCFLAGS) $(CFLAGS) -c $(@:.o=.c)
 
 clean:
-	rm -f surf $(OBJ) $(COBJ)
+	rm -f surf $(OBJ)
 	rm -f $(WLIB) $(WOBJ)
 
 distclean: clean

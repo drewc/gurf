@@ -141,6 +141,7 @@ typedef struct {
 } SiteSpecific;
 
 /* Surf */
+static void die(const char *errstr, ...);
 static void usage(void);
 static void setup(void);
 static void sigchld(int unused);
@@ -300,6 +301,17 @@ static ParamName loadfinished[] = {
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
+
+void
+die(const char *errstr, ...)
+{
+       va_list ap;
+
+       va_start(ap, errstr);
+       vfprintf(stderr, errstr, ap);
+       va_end(ap);
+       exit(1);
+}
 
 void
 usage(void)
