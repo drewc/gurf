@@ -1161,6 +1161,10 @@ newview(Client *c, WebKitWebView *rv)
 		webkit_web_context_set_cache_model(context,
 		    curconfig[DiskCache].val.i ? WEBKIT_CACHE_MODEL_WEB_BROWSER :
 		    WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER);
+		/* plugins directories */
+		for (; *plugindirs; ++plugindirs)
+			webkit_web_context_set_additional_plugins_directory(
+			    context, *plugindirs);
 
 		/* Currently only works with text file to be compatible with curl */
 		webkit_cookie_manager_set_persistent_storage(cookiemanager,
