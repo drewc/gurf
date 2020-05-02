@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <glib.h>
+#include <inttypes.h>
 #include <libgen.h>
 #include <limits.h>
 #include <pwd.h>
@@ -107,7 +108,7 @@ typedef struct Client {
 	GTlsCertificate *cert, *failedcert;
 	GTlsCertificateFlags tlserr;
 	Window xid;
-	unsigned long pageid;
+	guint64 pageid;
 	int progress, fullscreen, https, insecure, errorpage;
 	const char *title, *overtitle, *targeturi;
 	const char *needle;
@@ -366,7 +367,8 @@ setup(void)
 	} else {
 		gchanin = g_io_channel_unix_new(spair[0]);
 		g_io_channel_set_encoding(gchanin, NULL, NULL);
-		g_io_channel_set_flags(gchanin, G_IO_FLAG_NONBLOCK, NULL);
+		g_io_channel_set_flags(gchanin, g_io_channel_get_flags(gchanin)
+		                       | G_IO_FLAG_NONBLOCK, NULL);
 		g_io_channel_set_close_on_unref(gchanin, TRUE);
 		g_io_add_watch(gchanin, G_IO_IN, readsock, NULL);
 	}
@@ -1446,7 +1448,7 @@ createwindow(Client *c)
 		gtk_window_set_wmclass(GTK_WINDOW(w), wmstr, "Surf");
 		g_free(wmstr);
 
-		wmstr = g_strdup_printf("%s[%lu]", "Surf", c->pageid);
+		wmstr = g_strdup_printf("%s[%"PRIu64"]", "Surf", c->pageid);
 		gtk_window_set_role(GTK_WINDOW(w), wmstr);
 		g_free(wmstr);
 
@@ -1885,7 +1887,7 @@ msgext(Client *c, char type, const Arg *a)
 	}
 
 	if (send(spair[0], msg, ret, 0) != ret)
-		fprintf(stderr, "surf: error sending: %d%c%d (%dB)\n",
+		fprintf(stderr, "surf: error sending: %u%c%d (%d)\n",
 		        c->pageid, type, a->i, ret);
 }
 
