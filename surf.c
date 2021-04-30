@@ -51,7 +51,6 @@ enum {
 };
 
 typedef enum {
-	AcceleratedCanvas,
 	AccessMicrophone,
 	AccessWebcam,
 	CaretBrowsing,
@@ -272,7 +271,6 @@ static ParamName loadtransient[] = {
 };
 
 static ParamName loadcommitted[] = {
-	AcceleratedCanvas,
 //	AccessMicrophone,
 //	AccessWebcam,
 	CaretBrowsing,
@@ -754,9 +752,6 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 	modparams[p] = curconfig[p].prio;
 
 	switch (p) {
-	case AcceleratedCanvas:
-		webkit_settings_set_enable_accelerated_2d_canvas(s, a->i);
-		break;
 	case AccessMicrophone:
 		return; /* do nothing */
 	case AccessWebcam:
@@ -1123,7 +1118,6 @@ newview(Client *c, WebKitWebView *rv)
 		   "enable-html5-local-storage", curconfig[DiskCache].val.i,
 		   "enable-java", curconfig[Java].val.i,
 		   "enable-javascript", curconfig[JavaScript].val.i,
-		   "enable-accelerated-2d-canvas", curconfig[AcceleratedCanvas].val.i,
 		   "enable-site-specific-quirks", curconfig[SiteQuirks].val.i,
 		   "enable-smooth-scrolling", curconfig[SmoothScrolling].val.i,
 		   "enable-webgl", curconfig[WebGL].val.i,
