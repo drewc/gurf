@@ -12,12 +12,9 @@
 
 (def surf-clean (string-append "rm -rv " (path-expand "drewc/gurf/surf*.*" bootstrap)))
 
-(def surf-pull-bootstrap (string-append "mv " (path-expand "drewc/gurf/surf*.*" bootstrap) " " libpath))
-(def surf-pull-static (string-append "mv " (path-expand "static/*.*" bootstrap)
+(def surf-push-bootstrap (string-append "mv -v " (path-expand "drewc/gurf/surf*.*" bootstrap) " " libpath))
+(def surf-push-static (string-append "mv -v " (path-expand "static/*.*" bootstrap)
                                      " " staticpath))
-
-
-
 (def (surf-build)
   (shell-command surf-clean)
   (shell-command (string-append "mkdir -p " libpath))
@@ -33,8 +30,8 @@
       libdir: bootstrap
       verbose: 1)
     (main))
-  (shell-command surf-pull-bootstrap)
-  (shell-command surf-pull-static))
+  (shell-command surf-push-bootstrap)
+  (shell-command surf-push-static))
 
 
 (def (main . args) (surf-build))
