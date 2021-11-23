@@ -1,0 +1,10 @@
+#+TITLE: Index: Literate Outlay
+
+* Surf FFI
+
+We base ourselves off the Surf browser. The [[file:surf.org::#surfFFI][FFI to ~surf.c~]] is really where it
+all begins.
+
+* Gerbil package
+
+[[file:gerbil.org][Have a look here.]]
