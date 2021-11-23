@@ -172,6 +172,8 @@ static void runscript(Client *c);
 static void evalscript(Client *c, const char *jsstr, ...);
 static void updatewinid(Client *c);
 static void handleplumb(Client *c, const char *uri);
+static void spawnnewwindow(Client *c, const Arg *a, int noembed);
+static void newsurf(Client *c, const Arg *a);
 static void newwindow(Client *c, const Arg *a, int noembed);
 static void spawn(Client *c, const Arg *a);
 static void msgext(Client *c, char type, const Arg *a);
@@ -989,7 +991,27 @@ handleplumb(Client *c, const char *uri)
 }
 
 void
+newsurf(Client *rc, const Arg *a)
+{
+  Client* c = newclient(rc);
+
+  showview(NULL, c);
+  loaduri(c, a);
+  updatetitle(c);
+}
+
+void
 newwindow(Client *c, const Arg *a, int noembed)
+{
+	if (argv0 != NULL) {
+		spawnnewwindow(c, a, noembed);
+	} else {
+		newsurf(c, a);
+	}
+}
+
+void
+spawnnewwindow(Client *c, const Arg *a, int noembed)
 {
 	int i = 0;
 	char tmp[64];
