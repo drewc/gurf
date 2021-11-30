@@ -1,5 +1,208 @@
 #+TITLE: Surf, the suckless browser
 
+* Surf and ~surf~, surf's up!
+
+This is the entry point to surf on which gurf is built.
+
+#+begin_src scheme :noweb-ref surf
+(def (surf (uri "about:blank") (rclient (current-surf-client)))
+  (start-surfing!)
+  (let (client (newclient rclient))
+    (showview client)
+    (loaduri client uri)
+    (updatetitle client)
+    (current-surf-client client)
+    client))
+#+end_src
+
+** ~start-surfing!~ and the driver green thread.
+
+We only run if not yet running.
+
+First we ~setup~, a *C* function.
+
+#+begin_src scheme :noweb-ref setup
+(define-c-lambda setup () void "setup")
+#+end_src
+
+#+begin_src scheme :noweb-ref start-surfing!
+(def current-surf-driver (make-parameter #f))
+(def (start-surfing!)
+  (cond ((current-surf-driver) => values)
+        (else
+         (setup)
+         (let (drv (spawn surf-driver!))
+                (current-surf-driver drv)
+                drv))))
+#+end_src
+
+** ~surf-driver~!: CPU time
+
+There are probably better ways to go about this.
+
+Essentially, GTK wants/needs to know when to iterate. If there's a
+context-pending we need to iterate. Otherwise we wait.
+
+#+begin_src scheme :noweb-ref gtk_surf_iteration
+(define-c-lambda gtk_surf_iteration
+    () bool "gboolean res = g_main_context_pending(NULL);
+    while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, FALSE);
+   }; ___return(res);")
+#+end_src
+
+Now we play with time and sleep, trying to not use that much CPU while still being responsive.
+#+begin_src scheme :noweb-ref surf-driver!
+(def (surf-driver!)
+  (def min-sleep 0.00001)
+  (def max-sleep 0.05)
+  (def sleep-incr 0.00000001)
+  (def sleep min-sleep)
+  (def (sleepy)
+    (thread-sleep! (max sleep max-sleep))
+    (when (< sleep max-sleep)
+      (+ sleep sleep-incr)))
+  (let lp ()
+    (def events? (gtk_surf_iteration))
+    (if events?
+      (set! sleep min-sleep)
+      (sleepy))
+    (lp)))
+#+end_src
+
+
+** ~newclient~, ~showview~, ~loaduri~, ~updatetitle~: All *C* functions
+
+These are what gives us what we need to surf!
+
+#+begin_src scheme :noweb-ref surf-c-functions
+(define-c-lambda newclient (Client*) Client* "newclient")
+(define-c-lambda showview (Client*) void
+  "showview(NULL, ___arg1); ___return;")
+(define-c-lambda loaduri (Client* char-string) void
+    "Arg arg; arg.v = ___arg2 ; loaduri(___arg1, &arg); ___return;")
+(define-c-lambda updatetitle (Client*) void "updatetitle")
+#+end_src
+
+** ~Client~, ~current-surf-client~ and friends.
+:PROPERTIES:
+:CUSTOM_ID: Client
+:END:
+
+A ~Client~ is the "window" that contains a ~WebKitWebView~ among other things.
+
+Here's the *C*.
+
+#+begin_src c
+typedef struct Client {
+	GtkWidget *win;
+	WebKitWebView *view;
+	WebKitWebInspector *inspector;
+	WebKitFindController *finder;
+	WebKitHitTestResult *mousepos;
+	GTlsCertificate *cert, *failedcert;
+	GTlsCertificateFlags tlserr;
+	Window xid;
+	guint64 pageid;
+	int progress, fullscreen, https, insecure, errorpage;
+	const char *title, *overtitle, *targeturi;
+	const char *needle;
+	struct Client *next;
+} Client;
+#+end_src
+
+We'll make it into *Gerbil*. A big deal here is that we do not want to free a
+client. That's handled elsewhere.
+
+But *Gerbil*'s ~define-c-struct~ does have some nice setters and getters.
+
+#+begin_src scheme :noweb-ref Client-struct
+(c-declare "int ____nofreeclient(Client *c){ return 0;}")
+(define-c-struct Client
+  ((title . char-string)
+   (targeturi . char-string)
+   (next . Client-borrowed-ptr*))
+  "____nofreeclient")
+#+end_src
+
+Using that we can export the following.
+
+#+begin_src scheme :noweb-ref Client-exports
+Client Client* Client-next
+Client-title Client-targeturi
+#+end_src
+
+** ~current-surf-client~, because I like dynamic scope
+
+A lot of functions expect a client. A lot of the time we have a master client or
+something. Regardless, having a ~current-surf-client~ mixes in a lot of scheme.
+
+*Surf* has a global, ~clients~, which has all the current clients in this process, starting with the most recent one and ~->next~'ing the rest.
+
+#+begin_src c :noweb-ref clients
+  (define-c-lambda clients () Client* "___return(clients);")
+#+end_src
+
+We'll call that ~surf-client~ and use it + ~Client-next~ to return a
+list.
+
+#+begin_src scheme :noweb-ref surf-clients
+(defalias surf-client clients)
+(def (surf-clients)
+  (let lp ((c (surf-client)))
+    (if (not c)
+      []
+      (cons c (lp (Client-next c))))))
+#+end_src
+
+Then there's ~current-surf-client~ which
+
+#+begin_src scheme :noweb-ref surf-clients
+(def current-surf-client (make-parameter #f))
+
+#+end_src
+
+#+begin_src scheme :noweb-ref surf-client-export
+#+end_src
+
+
+
+* The ~eval-script~ procedure.
+
+*Surf* has it, we just need to make it scheme-y.
+
+Here's the C.
+
+#+begin_src c
+void evalscript(Client *c, const char *jsstr, ...);
+#+end_src
+
+Here's schemeifying the C.
+
+#+begin_src scheme :noweb-ref evalscript
+(define-c-lambda evalscript (Client-borrowed-ptr* char-string) void
+  "evalscript(___arg1, \"%s\", ___arg2); ___return;")
+#+end_src
+
+And here's the scheme.
+
+#+begin_src scheme :noweb yes
+#+end_src
+
+
+* Add Download Patch
+
+Surf calls ~curl~. I don't want that. This patch makes it work using
+#+begin_src shell
+cd ~/me/src
+cd ~/me/src/gurf/bootstrap/drewc/gurf/surf/
+wget https://surf.suckless.org/patches/dlconsole/surf-dlconsole-20190919-d068a38.diff
+#+end_src
+
+Because we have other modifications it took some diff/patching, but now we have
+that
+
+
 * New Window
 
 Surf ships with a fork and relaunch of itself when a new window is opened.
@@ -34,6 +237,11 @@ newwindow(Client *c, const Arg *a, int noembed)
 }
 #+end_src
 
+This is all in the ~surf~ code, so push the subtree.
+
+#+begin_src shell
+git subtree push --prefix=bootstrap/drewc/gurf/surf ./ surf
+#+end_src
 
 * The FFI to ~surf.c~
 
@@ -45,65 +253,39 @@ gxpkg link github.com/drewc/gurf $(pwd)
 gxpkg build github.com/drewc/gurf
 #+end_src
 
-#+begin_src scheme :tangle surf.ss
-(export #t setup surf surf-clients newclient showview current-surf-driver start-surfing! gtk_surf_iteration
-        Client Client-title)
+#+begin_src scheme :tangle surf.ss :noweb yes
+(export #t setup surf  newclient showview current-surf-driver start-surfing! gtk_surf_iteration
+        <<Client-exports>>
+       <<surf-client-exports>>
+        )
 (import :std/foreign
         :gerbil/gambit/foreign
         :gerbil/gambit/threads)
 
-(def (surf-driver!)
-  (def _sleep 0.00001)
-  (def sleep 0.00001)
-  (def max-sleep 0.1)
-  (def (sleepy)
-    (thread-sleep! (max sleep max-sleep))
-    (when (< sleep max-sleep)
-      (+ sleep 0.0000001)))
-  (let lp ()
-    (def events? (gtk_surf_iteration))
-    (if events?
-      (set! sleep _sleep)
-      (sleepy))
-    (lp)))
+<<surf-driver!>>
 
-(def current-surf-driver (make-parameter #f))
-(def (start-surfing!)
-  (cond ((current-surf-driver) => values)
-        (else
-         (setup)
-         (let (drv (spawn surf-driver!))
-                (current-surf-driver drv)
-                drv))))
+<<start-surfing!>>
 
-(def surf-clients clients)
+<<surf>>
 
-(def (surf (uri "about:blank") (rclient (surf-clients)))
-  (start-surfing!)
-  (let (client (newclient rclient))
-    (showview client)
-    (loaduri client uri)
-    (updatetitle client)
-    client))
+<<surf-clients>>
 
 
-(begin-ffi (setup newclient clients loaduri showview  gtk_surf_iteration updatetitle Client Client-title
-                 abc abc-b)
+
+
+(begin-ffi (setup
+            newclient clients loaduri showview
+            gtk_surf_iteration updatetitle
+            <<Client-exports>>
+            evalscript)
   (c-declare "#include \"surf/surf.c\"")
-  (define-c-lambda setup () void "setup")
-  (define-c-struct Client ((title . char-string) (next . Client-borrowed-ptr*)))
-  (define-c-lambda newclient (Client-borrowed-ptr*) Client-borrowed-ptr* "newclient")
-  (define-c-lambda clients () Client-borrowed-ptr* "___return(clients);")
-  (define-c-lambda loaduri (Client-borrowed-ptr* char-string) void
-    "Arg arg; arg.v = ___arg2 ; loaduri(___arg1, &arg); ")
-  (define-c-lambda updatetitle (Client-borrowed-ptr*) void "updatetitle")
-  (define-c-lambda showview (Client-borrowed-ptr*) void "showview(NULL, ___arg1);")
-  (define-c-lambda testSurf () int "___return(1);")
-  (define-c-lambda gtk_surf_iteration
-    () bool "gboolean res = g_main_context_pending(NULL);
-    while (g_main_context_pending(NULL)) {
-      g_main_context_iteration(NULL, FALSE);
-   }; ___return(res);"))
+  <<setup>>
+  <<Client-struct>>
+  <<surf-c-functions>>
+  <<evalscript>>
+  <<clients>>
+  <<gtk_surf_iteration>>
+  )
 
 #+end_src
 
